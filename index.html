@@ -60,21 +60,46 @@ td.l,th.l{text-align:left}
 .vs{color:var(--sub);font-size:12px}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
 .overlay .card{width:86%;max-width:420px;text-align:center}
-/* ---- 公式風採点票（JSTA記入要領準拠） ---- */
-.paperWrap{overflow-x:auto}
-.paper{background:#fff;border:2px solid #4a7fd0;border-radius:4px;padding:8px 6px;color:#123a6b;width:540px}
-.paper .ttl{text-align:center;font-weight:700;font-size:13px;color:#2b62b8;margin-bottom:4px}
-.paper table{border-collapse:collapse;margin:0 auto}
-.paper td{border:1px solid #8db1e3;height:19px;text-align:center;font-size:11px;padding:0 1px;color:#123a6b}
-.pcell{width:16px;min-width:16px;font-size:12px;position:relative}
-.astT::after{content:"＊";position:absolute;top:-1px;right:0;font-size:7px;color:#7fa7dd;line-height:1}
-.astB::after{content:"＊";position:absolute;bottom:-1px;right:0;font-size:7px;color:#7fa7dd;line-height:1}
-.srx{width:30px;min-width:30px;font-size:10px;white-space:nowrap}
-.gnum{width:60px;min-width:60px;font-weight:700;background:#f6faff;font-size:11px;white-space:nowrap}
-.circk{display:inline-block;border:1.5px solid #123a6b;border-radius:50%;width:13px;height:13px;line-height:13px;font-size:9px;text-align:center}
-.cnum{display:inline-block;border:1.5px solid #123a6b;border-radius:50%;min-width:14px;height:14px;line-height:14px;font-size:10px;padding:0 1px}
-.phead td{font-size:10px;background:#f6faff}
-.pfoot{color:#2b62b8;text-align:center;font-size:10px;margin-top:4px}
+/* ---- JSTA公式採点票（原寸再現・mm単位） ---- */
+#paperOuter{margin:0 auto;overflow:visible}
+.paper2{background:#fff;width:178mm;padding:3mm 5mm;transform-origin:top left;color:#000;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);--fB:#1c56b0;--fL:#b3c9ee;
+  font-family:'Hiragino Kaku Gothic ProN','BIZ UDGothic',sans-serif}
+.pTitle{text-align:center;color:var(--fB);font-weight:700;font-size:4.4mm;letter-spacing:1mm;margin:0 0 1.6mm}
+.pOrg{text-align:center;color:var(--fB);font-size:3.3mm;margin-top:1.8mm}
+.pT{width:-moz-fit-content;width:fit-content;border:.5mm solid var(--fB)}
+.pRow{display:grid;border-bottom:.3mm solid var(--fB)}
+.pT>.pRow:last-child{border-bottom:none}
+.lc,.pc{display:flex;align-items:center;justify-content:center;position:relative;min-width:0;min-height:0}
+.pc{cursor:pointer}
+.cB{border-right:.3mm solid var(--fB)}
+.cL{border-right:.15mm solid var(--fL)}
+.bb{border-bottom:.15mm solid var(--fL)}
+.bbD{border-bottom:.3mm solid var(--fB)}
+.lb{color:var(--fB);font-size:2.5mm;white-space:nowrap}
+.ed{color:#000;font-size:3.2mm;flex:1;min-width:5mm;min-height:1.2em;outline:none;text-align:center;
+  -webkit-user-select:text;user-select:text}
+.gmid .ed,.hc>.ed{flex:0 1 auto;min-width:4.5mm}
+.mk{font-size:3.3mm;font-weight:700;line-height:1}
+.ast{position:absolute;top:.1mm;right:.2mm;font-size:1.7mm;color:var(--fB);font-style:normal;line-height:1}
+.gg{display:grid;grid-template-columns:repeat(13,1fr);height:100%}
+.gmid{gap:.8mm}
+.glab{color:var(--fB);font-size:3.4mm;white-space:nowrap;cursor:pointer}
+.hc,.hcv{display:inline-flex;align-items:center;justify-content:center;min-width:4.4mm;min-height:4.4mm;line-height:1}
+.hc{border:.35mm solid #000;border-radius:50%}
+.hc.sm,.hcv.sm{min-width:3.4mm;min-height:3.4mm}
+.srx{gap:.6mm;font-size:2.8mm;color:var(--fB);cursor:pointer}
+.vtx{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:.4mm}
+.sideOn{border:.35mm solid #000;border-radius:50%;padding:.2mm .8mm}
+@media print{
+  body{background:#fff}
+  #app *{visibility:hidden}
+  #nav{display:none!important}
+  #paperOuter,#paperOuter *{visibility:visible}
+  #paperOuter{position:absolute;left:0;top:0;width:auto!important;height:auto!important;margin:0}
+  .paper2{transform:none!important;box-shadow:none}
+}
+@page{size:A4 portrait;margin:8mm}
 .stepTitle{font-size:15px;font-weight:700;margin:4px 0 8px}
 .hint{font-size:12px;color:var(--sub);margin-top:6px}
 </style>
@@ -431,99 +456,227 @@ function vStats(m){
   return head+teamCard+patCard+cards+back;
 }
 
-/* ---------- score sheet (公式風採点票・JSTA記入要領準拠) ---------- */
+/* ---------- score sheet (JSTA公式採点票を原寸再現・手入力可) ---------- */
+function shGet(m){m.sheet=m.sheet||{};m.sheet.f=m.sheet.f||{};m.sheet.c=m.sheet.c||{};return m.sheet;}
+function shF(el){const m=statsTarget;if(!m)return;shGet(m).f[el.dataset.f]=el.innerText;save();}
+function cycC(key,cur,n){const m=statsTarget;if(!m)return;shGet(m).c[key]=(cur+1)%n;save();render();}
+
 function vSheet(m){
   if(!m)return vHome();
+  const sh=shGet(m);
   const gs=annotate(m),d=derive(m);
-  const CIRC="①②③④⑤⑥⑦⑧⑨";
-  const cnum=n=>`<span class="cnum">${n}</span>`;
-  // 1ゲーム＝上下2段（○×を上段左から右へ、あふれたら下段へ）
-  const gameRow=(gi)=>{
-    const g=gs[gi];
-    const isF=g?g.final:false;
-    const label=isF?"Ｆ":(CIRC[gi]||gi+1);
-    const pts=g?g.pts:[];
-    const COLS=Math.max(13,Math.ceil(pts.length/2));
-    const srvTeam=pts.length?pts[0].st:null;
-    const mark=(t,row,col)=>{
-      const p=pts[row*COLS+col];
-      if(!p)return "";
-      return p.winTeam===t?"○":"×";
-    };
-    const ast=(col,row)=>{
-      if(!isF)return "";
-      return Math.floor(col/2)%2===0?(row===0?" astT":""):(row===1?" astB":"");
-    };
-    const side=(t,row)=>{
+  const regs=gs.filter(g=>!g.final);
+  const fg=gs.find(g=>g.final)||null;
+  const PT=["","○","×"];
+
+  const ed=(key,def,fs)=>{
+    const v=sh.f[key]!==undefined?sh.f[key]:(def||"");
+    return `<span class="ed"${fs?` style="font-size:${fs}"`:""} contenteditable data-f="${key}" oninput="shF(this)">${esc(v)}</span>`;
+  };
+  const cget=(key,auto)=>sh.c[key]!==undefined?sh.c[key]:auto;
+  const cw=(txt,on,sm)=>`<span class="${on?"hc":"hcv"}${sm?" sm":""}">${txt}</span>`;
+
+  /* --- ヘッダー2行 --- */
+  const mw=cget("mw",0);
+  const hdr=`
+  <div class="pRow" style="grid-template-columns:44.2mm 39.9mm 41.7mm 42.2mm;height:13mm">
+    <div class="lc cB" style="justify-content:flex-start;padding:0 1mm;gap:1mm">
+      <span class="lb">種別</span>${ed("shu","")}
+      <span class="lb" style="display:inline-flex;flex-direction:column;font-size:2.2mm;cursor:pointer" onclick="cycC('mw',${mw},3)">${cw("男",mw===1,1)}${cw("女",mw===2,1)}</span>
+    </div>
+    <div class="lc cB" style="gap:1mm;padding:0 1mm"><span class="lb">第</span>${ed("court","")}<span class="lb">コ　ー　ト</span></div>
+    <div class="lc cB" style="justify-content:flex-start;padding:0 1mm;gap:1mm"><span class="lb">正審</span>${ed("ump1","")}</div>
+    <div class="lc" style="justify-content:flex-start;padding:0 1mm;gap:1mm"><span class="lb">副審</span>${ed("ump2","")}</div>
+  </div>
+  <div class="pRow" style="grid-template-columns:44.2mm 39.9mm 41.7mm 42.2mm;height:13mm">
+    <div class="lc cB" style="gap:1mm;padding:0 1mm"><span class="lb">第</span>${ed("round","")}<span class="lb">回戦</span></div>
+    <div class="cB" style="display:grid;grid-template-rows:1fr 1fr">
+      <div class="lc bb" style="gap:1mm;padding:0 1mm"><span class="lb">開始</span>${ed("tS",m.start||"")}<span class="lb">分</span></div>
+      <div class="lc" style="gap:1mm;padding:0 1mm"><span class="lb">終了</span>${ed("tE",m.end||"")}<span class="lb">分</span></div>
+    </div>
+    <div class="lc cB" style="justify-content:flex-start;padding:0 1mm;gap:1mm"><span class="lb">線審</span>${ed("ln1","")}</div>
+    <div class="lc" style="justify-content:flex-start;padding:0 1mm;gap:1mm"><span class="lb">線審</span>${ed("ln2","")}</div>
+  </div>`;
+
+  /* --- プレーヤー欄 --- */
+  const noCols=["4.4mm 17.7mm 13.4mm 35.2mm","4.5mm 17.6mm 13.3mm 35.3mm"];
+  const noRow=(t)=>`
+    <div style="display:grid;grid-template-columns:${noCols[t]};height:12.8mm" class="bbD">
+      <div class="lc cB lb" style="font-size:2.2mm">No</div>
+      <div class="lc cB">${ed("no"+t,"")}</div>
+      <div class="lc cB lb">所属</div>
+      <div class="lc">${ed("club"+t,m.teams[t].name||"")}</div>
+    </div>`;
+  const pRows=(t)=>{
+    const sd=cget("sd"+t,0);
+    return `
+    <div style="display:grid;grid-template-columns:13.2mm 4.5mm 53mm;grid-template-rows:14mm 14.1mm">
+      <div class="cB" style="grid-row:1/3;display:flex;flex-direction:column">
+        <div class="lc" style="flex:1"><span class="lb vtx" style="font-size:2.1mm">プレーヤー</span></div>
+        <div class="lc" style="border-top:.15mm solid var(--fL);padding:.3mm 0;cursor:pointer" onclick="cycC('sd${t}',${sd},2)">
+          <span class="lb ${sd===1?"sideOn":""}" style="font-size:2mm">サイド</span>
+        </div>
+      </div>
+      <div class="lc cB lb bb">A</div>
+      <div class="lc bb">${ed("pA"+t,m.teams[t].players[0]||"","3.8mm")}</div>
+      <div class="lc cB lb">B</div>
+      <div class="lc">${ed("pB"+t,m.teams[t].players[1]||"","3.8mm")}</div>
+    </div>`;
+  };
+  const msWin=cget("msw",d.finished&&m.points.length?d.winner:2);
+  const msL=m.points.length?String(d.games[0]):"",msR=m.points.length?String(d.games[1]):"";
+  const msWrap=(inner,on)=>on?`<span class="hc" style="min-width:7mm;min-height:7mm">${inner}</span>`:inner;
+  const playerBlock=`
+  <div class="pRow" style="grid-template-columns:70.7mm 26.6mm 70.7mm">
+    <div class="cB">${noRow(0)}${pRows(0)}</div>
+    <div class="lc cB" style="flex-direction:column">
+      <div class="lb" style="margin-top:.8mm">（スコア）</div>
+      <div class="lc" style="flex:1;gap:1.6mm">
+        ${msWrap(ed("msL",msL,"5.5mm"),msWin===0)}
+        <span class="glab" style="font-size:5mm" onclick="cycC('msw',${msWin},3)">－</span>
+        ${msWrap(ed("msR",msR,"5.5mm"),msWin===1)}
+      </div>
+    </div>
+    <div>${noRow(1)}${pRows(1)}</div>
+  </div>`;
+
+  /* --- ゲーム行（①〜⑧＝上下2段13マス、Ｆ＝3段） --- */
+  const mkAuto=(g,t,idx)=>{const p=g&&g.pts[idx];if(!p)return 0;return p.winTeam===t?1:2;};
+  const ptCell=(key,autoIdx,cls,ast)=>{
+    const cur=cget(key,autoIdx);
+    return `<div class="pc ${cls}" onclick="cycC('${key}',${cur},3)">${ast?'<i class="ast">＊</i>':""}<span class="mk">${PT[cur]}</span></div>`;
+  };
+  const srCell=(key,auto)=>{
+    const cur=cget(key,auto);
+    return `<div class="lc srx cB" onclick="cycC('${key}',${cur},3)">${cw("S",cur===0)}${cw("R",cur===1)}</div>`;
+  };
+  // 通常行の縦線：1・3マス目の後→下段のみ濃線、5・7・9・11マス目の後→濃線、他→薄線
+  const brReg=(c,band)=>{
+    if(c===12)return "";
+    if(c===0||c===2)return band===1?"cB":"cL";
+    return (c>=4&&c%2===0)?"cB":"cL";
+  };
+  const GAMECOLS="13.2mm 57.5mm 26.6mm 13.3mm 57.4mm";
+  const midCell=(key,label,sL,sR,win)=>`
+    <div class="lc cB gmid">
+      ${win===0?`<span class="hc">${ed(key+"L",sL,"3.4mm")}</span>`:ed(key+"L",sL,"3.4mm")}
+      <span class="glab" onclick="cycC('${key}w',${win},3)">-${label}-</span>
+      ${win===1?`<span class="hc">${ed(key+"R",sR,"3.4mm")}</span>`:ed(key+"R",sR,"3.4mm")}
+    </div>`;
+  const gameRow=(ri)=>{
+    const g=regs[ri]||null;
+    const srvT=g&&g.pts.length?g.pts[0].st:null;
+    const grid=(t)=>{
       let h="";
-      for(let c=0;c<COLS;c++)h+=`<td class="pcell${ast(c,row)}">${mark(t,row,c)}</td>`;
+      for(let band=0;band<2;band++)
+        for(let c=0;c<13;c++)
+          h+=ptCell(`p${ri}_${t}_${band}_${c}`,mkAuto(g,t,band*13+c),brReg(c,band)+(band===0?" bb":""));
       return h;
     };
-    const sr=t=>{
-      if(srvTeam===null)return `<td class="srx" rowspan="2">S R</td>`;
-      return `<td class="srx" rowspan="2">${srvTeam===t?'<span class="circk">S</span> R':'S <span class="circk">R</span>'}</td>`;
-    };
-    let midTxt=`-${label}-`;
-    if(g&&(g.winner!==null||pts.length)){
-      const ls=g.winner===0?cnum(g.score[0]):g.score[0];
-      const rs=g.winner===1?cnum(g.score[1]):g.score[1];
-      midTxt=`${ls} -${label}- ${rs}`;
-    }
-    const mid=`<td class="gnum" rowspan="2">${midTxt}</td>`;
-    return `<table style="margin-top:-1px"><tr>${sr(0)}${side(0,0)}${mid}${side(1,0)}${sr(1)}</tr><tr>${side(0,1)}${side(1,1)}</tr></table>`;
+    const win=cget(`g${ri}w`,g&&g.winner!==null?g.winner:2);
+    const sL=g&&g.pts.length?String(g.score[0]):"",sR=g&&g.pts.length?String(g.score[1]):"";
+    return `<div class="pRow" style="grid-template-columns:${GAMECOLS};height:13.5mm">
+      ${srCell(`sr${ri}_0`,srvT===null?2:(srvT===0?0:1))}
+      <div class="gg cB" style="grid-template-rows:1fr 1fr">${grid(0)}</div>
+      ${midCell(`g${ri}`,"①②③④⑤⑥⑦⑧"[ri],sL,sR,win)}
+      ${srCell(`sr${ri}_1`,srvT===null?2:(srvT===1?0:1))}
+      <div class="gg" style="grid-template-rows:1fr 1fr">${grid(1)}</div>
+    </div>`;
   };
+  // Ｆ行：縦線とアスタリスクは公式票の千鳥配置
+  const brFin=(c,band,side)=>{
+    if(c===12)return "";
+    const tb=side===0?[0,4,8]:[2,6,10];
+    const md=side===0?[2,6,10]:[0,4,8];
+    if(tb.includes(c))return band===1?"cL":"cB";
+    if(md.includes(c))return band===1?"cB":"cL";
+    return "cL";
+  };
+  const astF=(c,band,side)=>{
+    const tb=side===0?[0,3,4,7,8,11,12]:[1,2,5,6,9,10];
+    const md=side===0?[1,2,5,6,9,10]:[0,3,4,7,8,11,12];
+    return band===1?md.includes(c):tb.includes(c);
+  };
+  const fRow=(()=>{
+    const srvT=fg&&fg.pts.length?fg.pts[0].st:null;
+    const grid=(t)=>{
+      let h="";
+      for(let band=0;band<3;band++)
+        for(let c=0;c<13;c++){
+          const idx=band===1?c:(band===2?13+c:-1);
+          h+=ptCell(`pF_${t}_${band}_${c}`,idx<0?0:mkAuto(fg,t,idx),brFin(c,band,t)+(band<2?" bb":""),astF(c,band,t));
+        }
+      return h;
+    };
+    const win=cget("gFw",fg&&fg.winner!==null?fg.winner:2);
+    const sL=fg&&fg.pts.length?String(fg.score[0]):"",sR=fg&&fg.pts.length?String(fg.score[1]):"";
+    return `<div class="pRow" style="grid-template-columns:${GAMECOLS};height:20.3mm">
+      ${srCell("srF_0",srvT===null?2:(srvT===0?0:1))}
+      <div class="gg cB" style="grid-template-rows:1fr 1fr 1fr">${grid(0)}</div>
+      ${midCell("gF","Ⓕ",sL,sR,win)}
+      ${srCell("srF_1",srvT===null?2:(srvT===1?0:1))}
+      <div class="gg" style="grid-template-rows:1fr 1fr 1fr">${grid(1)}</div>
+    </div>`;
+  })();
+
+  /* --- 警告・タイム欄 --- */
+  const five=(blk,ab,i)=>{
+    const k=`t5_${blk}_${ab}_${i}`;const cur=cget(k,0);
+    return `<span class="${cur?"hc":"hcv"} sm" style="cursor:pointer" onclick="cycC('${k}',${cur},2)">5</span>`;
+  };
+  const timeBlk=(blk,last)=>`
+    <div class="${last?"":"cB"}" style="display:flex;flex-direction:column;justify-content:center;padding:.6mm 2mm;align-items:flex-start">
+      <span class="lb">タ　イ　ム</span>
+      <span class="lb" style="display:inline-flex;align-items:center;gap:1mm;margin-top:.3mm">A　${five(blk,"A",0)}・${five(blk,"A",1)}</span>
+      <span class="lb" style="display:inline-flex;align-items:center;gap:1mm">B　${five(blk,"B",0)}・${five(blk,"B",1)}</span>
+    </div>`;
+  const warnLbl=(s)=>`
+    <div class="cB" style="display:grid;grid-template-rows:1fr 1fr">
+      <div class="lc lb bb" style="font-size:2.1mm">（警告）</div>
+      <div class="lc lb" style="font-size:1.9mm">該当事項</div>
+    </div>`;
+  const warnYR=(s,ch,i,last)=>{
+    const k=`wn${s}_${i}`;const cur=cget(k,0);
+    return `<div class="${last?"":"cB"}" style="display:flex;flex-direction:column;align-items:center;padding-top:.4mm">
+      <span class="${cur?"hc":"hcv"} sm lb" style="cursor:pointer" onclick="cycC('${k}',${cur},2)">${ch}</span>
+      ${ed(`wr${s}_${i}`,"","2.6mm")}
+    </div>`;
+  };
+  const warnRow=`
+  <div class="pRow" style="grid-template-columns:8.75mm 13.3mm 13.45mm 13.15mm 35.35mm 35.5mm 8.6mm 13.4mm 13.2mm 13.3mm;height:17.4mm">
+    ${warnLbl(0)}${warnYR(0,"Y",0)}${warnYR(0,"Y",1)}${warnYR(0,"R",2)}
+    ${timeBlk(0)}${timeBlk(1)}
+    ${warnLbl(1)}${warnYR(1,"Y",0)}${warnYR(1,"Y",1)}${warnYR(1,"R",2,true)}
+  </div>`;
+
+  /* --- 勝者サイン欄 --- */
+  const signRow=`
+  <div class="pRow" style="grid-template-columns:13.2mm 22.3mm 13.2mm 13.3mm 13.3mm 22.05mm 13.3mm 22.2mm 13.2mm 21.95mm;height:11.5mm">
+    <div class="lc cB lb" style="font-size:2.2mm">勝者サイン</div><div class="lc cB">${ed("wsign","")}</div>
+    <div class="lc cB lb" style="font-size:2.2mm">勝者No.</div><div class="lc cB">${ed("wno","")}</div>
+    <div class="lc cB lb">進行</div><div class="lc cB">${ed("prog","")}</div>
+    <div class="lc cB lb">点検</div><div class="lc cB">${ed("insp","")}</div>
+    <div class="lc cB lb">記録</div><div class="lc">${ed("rec","")}</div>
+  </div>`;
+
   let rows="";
-  const totalRows=Math.max(m.format,gs.length);
-  for(let gi=0;gi<totalRows;gi++)rows+=gameRow(gi);
-  const plRows=(t)=>m.teams[t].players.map((p,i)=>
-    `<tr><td style="width:20px">${"AB"[i]}</td><td style="min-width:110px">${esc(p)}</td></tr>`).join("");
-  const head=`
-  <table style="width:100%"><tr>
-    <td style="width:44%">
-      <table style="width:100%">
-        <tr class="phead"><td>No.</td><td>所属</td></tr>
-        <tr><td></td><td>${esc(m.teams[0].name||"")}</td></tr>
-      </table>
-      <table style="width:100%">${plRows(0)}</table>
-    </td>
-    <td style="width:12%;vertical-align:middle">
-      <div style="font-size:10px">（スコア）</div>
-      <div style="font-size:18px;font-weight:800">${d.finished&&d.winner===0?`<span class="cnum" style="min-width:20px;height:20px;line-height:20px;font-size:14px">${d.games[0]}</span>`:d.games[0]}－${d.finished&&d.winner===1?`<span class="cnum" style="min-width:20px;height:20px;line-height:20px;font-size:14px">${d.games[1]}</span>`:d.games[1]}</div>
-    </td>
-    <td style="width:44%">
-      <table style="width:100%">
-        <tr class="phead"><td>No.</td><td>所属</td></tr>
-        <tr><td></td><td>${esc(m.teams[1].name||"")}</td></tr>
-      </table>
-      <table style="width:100%">${plRows(1)}</table>
-    </td>
-  </tr></table>`;
-  const foot=`
-  <table style="width:100%;margin-top:4px"><tr class="phead">
-    <td>（警告）</td><td>Y</td><td>Y</td><td>R</td>
-    <td>タイム A　5・5</td><td>タイム B　5・5</td>
-    <td>（警告）</td><td>Y</td><td>Y</td><td>R</td>
-  </tr><tr>
-    <td>該当事項</td><td></td><td></td><td></td><td></td><td></td><td>該当事項</td><td></td><td></td><td></td>
-  </tr></table>
-  <table style="width:100%;margin-top:2px"><tr class="phead">
-    <td>勝者サイン</td><td></td><td>勝者No.</td><td></td><td>進行</td><td></td><td>点検</td><td></td><td>記録</td><td></td>
-  </tr></table>`;
-  const scale=Math.min(1,(window.innerWidth-30)/552);
-  return `<h1>📋 採点票</h1>
-  <div class="paperWrap"><div class="paper" style="zoom:${scale}">
-    <div class="ttl">ダブルス・シングルス採点票</div>
-    <table style="width:100%"><tr class="phead">
-      <td>種別</td><td>${esc(m.title||"")}</td><td>第　コート</td>
-      <td>開始 ${esc(m.start||"")}</td><td>終了 ${esc(m.end||"")}</td><td>${m.date}</td>
-    </tr></table>
-    ${head}
-    <div style="margin-top:6px">${rows}</div>
-    ${foot}
-    <div class="pfoot">○＝得点　×＝失点（上段左から右へ、あふれたら下段）　Ｓ・Ｒ＝丸がサーブ／レシーブ側　中央の丸数字＝ゲーム取得側　＊＝ファイナルのサーブ位置</div>
-  </div></div>
-  <div style="height:10px"></div>
-  <button class="primary" onclick="go(backView)">← 元の画面に戻る</button>`;
+  for(let ri=0;ri<8;ri++)rows+=gameRow(ri);
+
+  const PXMM=96/25.4;
+  const scale=Math.min(1,(Math.min(window.innerWidth,560)-24)/(178*PXMM));
+  return `<h1 class="noprint">📋 採点票</h1>
+  <div class="row noprint" style="margin-bottom:8px">
+    <button class="blue" onclick="window.print()">🖨 印刷（A4）</button>
+    <button class="primary" onclick="go(backView)">← 戻る</button>
+  </div>
+  <div class="hint noprint" style="margin-bottom:8px">記録から自動記入済み。文字はタップしてそのまま入力、マス目タップで ○→×→空欄、Ｓ Ｒ・男女・サイド・警告・タイムの5はタップで丸囲み。印刷するとA4縦の公式レイアウトになるよ。</div>
+  <div id="paperOuter" style="width:${Math.round(178*PXMM*scale)}px;height:${Math.round(243*PXMM*scale)}px">
+    <div class="paper2" style="transform:scale(${scale})">
+      <div class="pTitle">ダブルス・シングルス採点票</div>
+      <div class="pT">${hdr}${playerBlock}${rows}${fRow}${warnRow}${signRow}</div>
+      <div class="pOrg">公益財団法人　日本ソフトテニス連盟</div>
+    </div>
+  </div>`;
 }
 function delMatch(id){
   if(!confirm("この試合データを削除する？"))return;
@@ -584,6 +737,7 @@ function importData(ev){
   rd.readAsText(f);
 }
 
+window.addEventListener("resize",()=>{if(view==="sheet")render();});
 render();
 </script>
 </body>
