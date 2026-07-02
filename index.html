@@ -157,11 +157,12 @@ function calcStats(m){
     const bag=p.kind==="win"?P[p.pl].win:P[p.pl].miss;
     bag[p.stroke]=(bag[p.stroke]||0)+1;
   }
-  // S1〜S4 / R1〜R4：ゲーム内のポイント順ローテーション（1〜4本目、5本目以降は繰り返し）別ポイント率
+  // S1〜S4：サーバー（A/B）×コース（クロス＝ゲーム内1・3・5…本目／逆クロス＝2・4・6…本目）
+  // S1=Aクロス S2=A逆クロス S3=Bクロス S4=B逆クロス。R1〜R4はそのサーブを受けた側の同じ区分
   const mk=()=>[[0,0],[0,0],[0,0],[0,0]];
   const pat=[{S:mk(),R:mk()},{S:mk(),R:mk()}];
   for(const g of annotate(m))for(const p of g.pts){
-    const k=p.idx%4;
+    const k=p.sp*2+(p.idx%2);
     pat[p.st].S[k][1]++;
     if(p.winTeam===p.st)pat[p.st].S[k][0]++;
     pat[1-p.st].R[k][1]++;
@@ -410,7 +411,7 @@ function vStats(m){
     </div>`;
   }).join("");
   const patCard=`<div class="card"><b>パターン別ポイント率（S1〜S4／R1〜R4）</b>
-    <div class="hint">S1〜S4＝サービスゲームの1〜4本目（5本目以降は繰り返し）、R1〜R4＝レシーブゲームの同様のローテーション</div>
+    <div class="hint">S1＝選手Ａのクロスサーブ時　S2＝Ａの逆クロス　S3＝Ｂのクロス　S4＝Ｂの逆クロス（クロス＝ゲーム内の奇数本目）。R1〜R4＝相手のそのサーブを受けた時のポイント率</div>
     <table><tr><th class="l"></th>${["S1","S2","S3","S4","R1","R2","R3","R4"].map(x=>`<th>${x}</th>`).join("")}</tr>
     ${[0,1].map(t=>{
       const cells=[...s.pat[t].S,...s.pat[t].R].map(([a,b])=>`<td>${b?`${a}/${b}<br><b>${pct(a,b)}</b>`:"–"}</td>`).join("");
