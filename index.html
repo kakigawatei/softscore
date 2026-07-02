@@ -60,6 +60,20 @@ td.l,th.l{text-align:left}
 .vs{color:var(--sub);font-size:12px}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
 .overlay .card{width:86%;max-width:420px;text-align:center}
+/* ---- 公式風採点票 ---- */
+.paper{background:#fff;border:2px solid #4a7fd0;border-radius:4px;padding:8px 6px;color:#1d3f66;overflow-x:auto}
+.paper .ttl{text-align:center;font-weight:700;font-size:13px;color:#2b62b8;margin-bottom:4px}
+.paper table{border-collapse:collapse;margin:0 auto}
+.paper td{border:1px solid #8db1e3;height:24px;text-align:center;font-size:11px;padding:0 2px;color:#1d3f66}
+.paper .noB td{border:none}
+.pcell{width:15px;min-width:15px;font-size:13px}
+.srx{width:34px;min-width:34px;font-size:10px;white-space:nowrap}
+.gnum{width:44px;min-width:44px;font-weight:700;background:#f2f7ff}
+.circ{display:inline-block;border:1.6px solid #d94848;border-radius:50%;width:14px;height:14px;line-height:14px;font-size:9px}
+.srvcell{background:#e8f1ff}
+.dfW{color:#d94848;font-weight:700}
+.phead td{font-size:10px;background:#f2f7ff}
+.pfoot{color:#2b62b8;text-align:center;font-size:10px;margin-top:4px}
 .stepTitle{font-size:15px;font-weight:700;margin:4px 0 8px}
 .hint{font-size:12px;color:var(--sub);margin-top:6px}
 </style>
@@ -244,6 +258,7 @@ function startMatch(){
   const m={
     id:Date.now().toString(36),
     date:new Date().toLocaleDateString("ja-JP"),
+    start:new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}),
     title:v("f_title"),format:fmtSel,
     teams:[
       {name:v("f_t0"),players:[v("f_p0")||"選手A",v("f_p1")||"選手B"]},
@@ -409,38 +424,89 @@ function vStats(m){
   return head+teamCard+patCard+cards+back;
 }
 
-/* ---------- score sheet (採点表) ---------- */
+/* ---------- score sheet (公式風採点票) ---------- */
 function vSheet(m){
   if(!m)return vHome();
   const gs=annotate(m),d=derive(m);
-  const mark=(p,t)=>p.winTeam===t?"⭕":"<span style='color:#c9d2c5'>・</span>";
-  const svMark=p=>p.kind==="df"?"<b style='color:var(--red)'>W</b>":(p.serve===2?"2":"1");
-  const tables=gs.map((g,gi)=>{
-    const first=g.pts[0];
-    const svName=first?esc(pName(m,first.st*2+first.sp)):"";
-    const head=g.pts.map((_,i)=>`<th>${i+1}</th>`).join("");
-    const row=t=>g.pts.map(p=>`<td>${mark(p,t)}</td>`).join("");
-    const sv=g.pts.map(p=>`<td class="small">${svMark(p)}</td>`).join("");
-    const svLine=g.final?"ファイナル（2本ごとサーブ交代）":`サーブ：${svName}`;
-    return `<div class="card">
-      <b>第${gi+1}ゲーム</b> <span class="small">${svLine}</span>
-      <span style="float:right" class="big">${g.score[0]}-${g.score[1]}</span>
-      ${g.winner===null?'<span class="tag">進行中</span>':""}
-      <div style="overflow-x:auto;margin-top:6px"><table style="min-width:${Math.max(200,g.pts.length*34)}px">
-        <tr><th class="l"></th>${head}</tr>
-        <tr><td class="l small">${esc(m.teams[0].players.map(n=>n[0]).join("・"))}</td>${row(0)}</tr>
-        <tr><td class="l small">${esc(m.teams[1].players.map(n=>n[0]).join("・"))}</td>${row(1)}</tr>
-        <tr><td class="l small">サーブ</td>${sv}</tr>
-      </table></div>
-    </div>`;
-  }).join("")||'<div class="card small center">まだポイントがありません</div>';
-  return `<h1>📋 採点表</h1>
-  <div class="card center">
-    <b>${esc(m.teams[0].players.join("・"))}</b> <span class="vs">vs</span> <b>${esc(m.teams[1].players.join("・"))}</b>
-    <div class="big">${d.games[0]} - ${d.games[1]}</div>
-    <div class="small">⭕=ポイント獲得　サーブ行：1=1stイン 2=2ndイン W=ダブルフォルト</div>
+  const COLS=13;
+  const CIRC="①②③④⑤⑥⑦⑧⑨";
+  // 1ゲーム分の行（左=チーム1、中央=ゲーム番号、右=チーム2）
+  const gameRow=(gi)=>{
+    const g=gs[gi];
+    const label=g&&g.final?"Ｆ":(CIRC[gi]||gi+1);
+    const srvTeam=g&&g.pts.length?g.pts[0].st:null;
+    const srx=t=>{
+      if(srvTeam===null)return `<td class="srx">S　R</td>`;
+      return `<td class="srx">${srvTeam===t?'<span class="circ">S</span> R':'S <span class="circ">R</span>'}</td>`;
+    };
+    const cells=t=>{
+      const wins=g?g.pts.filter(p=>p.winTeam===t):[];
+      const n=Math.max(COLS,wins.length);
+      let h="";
+      for(let j=0;j<n;j++){
+        const p=wins[j];
+        let ch="",cls="pcell";
+        if(p){
+          ch=p.kind==="df"?'<span class="dfW">Ｗ</span>':"／";
+          if(g.final&&p.st===t)cls+=" srvcell"; // ファイナル：サーブ側で取った点に色
+        }
+        h+=`<td class="${cls}">${ch}</td>`;
+      }
+      return h;
+    };
+    const mid=`<td class="gnum">-${label}-${g?`<br><span style="font-size:10px">${g.score[0]}－${g.score[1]}</span>`:""}</td>`;
+    return `<table style="margin-top:-1px"><tr>${srx(0)}${cells(0)}${mid}${cells(1)}${srx(1)}</tr></table>`;
+  };
+  let rows="";
+  const totalRows=Math.max(m.format,gs.length);
+  for(let gi=0;gi<totalRows;gi++)rows+=gameRow(gi);
+  const plRows=(t)=>m.teams[t].players.map((p,i)=>
+    `<tr><td style="width:20px">${"AB"[i]}</td><td style="min-width:110px">${esc(p)}</td></tr>`).join("");
+  const head=`
+  <table style="width:100%"><tr>
+    <td style="width:44%">
+      <table style="width:100%">
+        <tr class="phead"><td>No.</td><td>所属</td></tr>
+        <tr><td></td><td>${esc(m.teams[0].name||"")}</td></tr>
+      </table>
+      <table style="width:100%">${plRows(0)}</table>
+    </td>
+    <td style="width:12%;vertical-align:middle">
+      <div style="font-size:10px">（スコア）</div>
+      <div style="font-size:22px;font-weight:800">${d.games[0]}－${d.games[1]}</div>
+    </td>
+    <td style="width:44%">
+      <table style="width:100%">
+        <tr class="phead"><td>No.</td><td>所属</td></tr>
+        <tr><td></td><td>${esc(m.teams[1].name||"")}</td></tr>
+      </table>
+      <table style="width:100%">${plRows(1)}</table>
+    </td>
+  </tr></table>`;
+  const foot=`
+  <table style="width:100%;margin-top:4px"><tr class="phead">
+    <td>（警告）</td><td>Y</td><td>Y</td><td>R</td>
+    <td>タイム A　5・5</td><td>タイム B　5・5</td>
+    <td>（警告）</td><td>Y</td><td>Y</td><td>R</td>
+  </tr><tr>
+    <td>該当事項</td><td></td><td></td><td></td><td></td><td></td><td>該当事項</td><td></td><td></td><td></td>
+  </tr></table>
+  <table style="width:100%;margin-top:2px"><tr class="phead">
+    <td>勝者サイン</td><td></td><td>勝者No.</td><td></td><td>進行</td><td></td><td>点検</td><td></td><td>記録</td><td></td>
+  </tr></table>`;
+  return `<h1>📋 採点票</h1>
+  <div class="paper">
+    <div class="ttl">ダブルス・シングルス採点票</div>
+    <table style="width:100%"><tr class="phead">
+      <td>種別</td><td>${esc(m.title||"")}</td><td>第　コート</td>
+      <td>開始 ${esc(m.start||"")}</td><td>${m.date}</td>
+    </tr></table>
+    ${head}
+    <div style="margin-top:6px">${rows}</div>
+    ${foot}
+    <div class="pfoot">／＝ポイント　Ｗ＝ダブルフォルト　Ｓ／Ｒ＝サーブ・レシーブ側（赤丸）　Ｆ行の青マス＝サーブ側で取ったポイント</div>
   </div>
-  ${tables}
+  <div style="height:10px"></div>
   <button class="primary" onclick="go(backView)">← 元の画面に戻る</button>`;
 }
 function delMatch(id){
