@@ -108,6 +108,24 @@ function serverNow(m,d){
 }
 const pName=(m,abs)=>m.teams[Math.floor(abs/2)].players[abs%2];
 const deuce=d=>{const t=d.final?7:4;return d.curPts[0]>=t-1&&d.curPts[1]>=t-1;};
+// ポイントをゲームごとに分割（採点表・パターン集計用）
+function annotate(m){
+  const out=[];let curArr=[],curPts=[0,0];const games=[0,0];
+  const isFinal=()=>games[0]===needGames(m)-1&&games[1]===needGames(m)-1;
+  for(const p of m.points){
+    curArr.push({...p,idx:curArr.length,final:isFinal()});
+    curPts[p.winTeam]++;
+    const target=isFinal()?7:4;
+    const lead=Math.abs(curPts[0]-curPts[1]);
+    if((curPts[0]>=target||curPts[1]>=target)&&lead>=2){
+      const w=curPts[0]>curPts[1]?0:1;
+      out.push({pts:curArr,score:[...curPts],winner:w,final:isFinal()});
+      games[w]++;curArr=[];curPts=[0,0];
+    }
+  }
+  if(curArr.length)out.push({pts:curArr,score:[...curPts],winner:null,final:isFinal()});
+  return out;
+}
 
 /* ================= stats ================= */
 function calcStats(m){
@@ -125,7 +143,17 @@ function calcStats(m){
     const bag=p.kind==="win"?P[p.pl].win:P[p.pl].miss;
     bag[p.stroke]=(bag[p.stroke]||0)+1;
   }
-  return{P,T};
+  // S1〜S4 / R1〜R4：ゲーム内のポイント順ローテーション（1〜4本目、5本目以降は繰り返し）別ポイント率
+  const mk=()=>[[0,0],[0,0],[0,0],[0,0]];
+  const pat=[{S:mk(),R:mk()},{S:mk(),R:mk()}];
+  for(const g of annotate(m))for(const p of g.pts){
+    const k=p.idx%4;
+    pat[p.st].S[k][1]++;
+    if(p.winTeam===p.st)pat[p.st].S[k][0]++;
+    pat[1-p.st].R[k][1]++;
+    if(p.winTeam!==p.st)pat[1-p.st].R[k][0]++;
+  }
+  return{P,T,pat};
 }
 const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
 const pct=(a,b)=>b?Math.round(a/b*100)+"%":"–";
@@ -137,10 +165,15 @@ function render(){
   else if(view==="setup")app.innerHTML=vSetup();
   else if(view==="score")app.innerHTML=vScore();
   else if(view==="stats")app.innerHTML=vStats(statsTarget);
+  else if(view==="sheet")app.innerHTML=vSheet(statsTarget);
   else if(view==="db")app.innerHTML=vDB();
   renderNav();
 }
-function go(v){view=v;window.scrollTo(0,0);render();}
+let backView="home";
+function go(v){
+  if(v==="sheet")backView=view;
+  view=v;window.scrollTo(0,0);render();
+}
 
 function renderNav(){
   const items=[["home","🏠 ホーム"],["db","📊 選手DB"]];
@@ -285,7 +318,8 @@ function vScore(){
   <div class="card">${input}</div>
   <div class="row">
     <button onclick="undoPt()" ${m.points.length?"":"disabled"}>↩ 1本取り消し</button>
-    <button class="blue" onclick="statsTarget=cur;go('stats')">📊 分析を見る</button>
+    <button onclick="statsTarget=cur;go('sheet')">📋 採点表</button>
+    <button class="blue" onclick="statsTarget=cur;go('stats')">📊 分析</button>
   </div>
   <div class="card"><b class="small">ゲーム経過</b><div>${gameRow||'<span class="small">まだゲームが終わっていません</span>'}</div></div>`;
 }
@@ -360,10 +394,54 @@ function vStats(m){
       <div class="statline"><span>自分のサーブ時ポイント率</span><span>${p.svc[0]}/${p.svc[1]}（${pct(p.svc[0],p.svc[1])}）</span></div>
     </div>`;
   }).join("");
-  const back=d.finished
+  const patCard=`<div class="card"><b>パターン別ポイント率（S1〜S4／R1〜R4）</b>
+    <div class="hint">S1〜S4＝サービスゲームの1〜4本目（5本目以降は繰り返し）、R1〜R4＝レシーブゲームの同様のローテーション</div>
+    <table><tr><th class="l"></th>${["S1","S2","S3","S4","R1","R2","R3","R4"].map(x=>`<th>${x}</th>`).join("")}</tr>
+    ${[0,1].map(t=>{
+      const cells=[...s.pat[t].S,...s.pat[t].R].map(([a,b])=>`<td>${b?`${a}/${b}<br><b>${pct(a,b)}</b>`:"–"}</td>`).join("");
+      return `<tr><td class="l">${esc(m.teams[t].players.join("・"))}</td>${cells}</tr>`;
+    }).join("")}
+    </table></div>`;
+  const back=(d.finished
     ?`<button class="ghost" onclick="go('home')">← ホームへ</button><button class="danger" onclick="delMatch('${m.id}')">この試合を削除</button>`
-    :`<button class="primary" onclick="go('score')">← スコア入力に戻る</button>`;
-  return head+teamCard+cards+back;
+    :`<button class="primary" onclick="go('score')">← スコア入力に戻る</button>`)
+    +`<div style="height:8px"></div><button onclick="go('sheet')">📋 採点表を見る</button>`;
+  return head+teamCard+patCard+cards+back;
+}
+
+/* ---------- score sheet (採点表) ---------- */
+function vSheet(m){
+  if(!m)return vHome();
+  const gs=annotate(m),d=derive(m);
+  const mark=(p,t)=>p.winTeam===t?"⭕":"<span style='color:#c9d2c5'>・</span>";
+  const svMark=p=>p.kind==="df"?"<b style='color:var(--red)'>W</b>":(p.serve===2?"2":"1");
+  const tables=gs.map((g,gi)=>{
+    const first=g.pts[0];
+    const svName=first?esc(pName(m,first.st*2+first.sp)):"";
+    const head=g.pts.map((_,i)=>`<th>${i+1}</th>`).join("");
+    const row=t=>g.pts.map(p=>`<td>${mark(p,t)}</td>`).join("");
+    const sv=g.pts.map(p=>`<td class="small">${svMark(p)}</td>`).join("");
+    const svLine=g.final?"ファイナル（2本ごとサーブ交代）":`サーブ：${svName}`;
+    return `<div class="card">
+      <b>第${gi+1}ゲーム</b> <span class="small">${svLine}</span>
+      <span style="float:right" class="big">${g.score[0]}-${g.score[1]}</span>
+      ${g.winner===null?'<span class="tag">進行中</span>':""}
+      <div style="overflow-x:auto;margin-top:6px"><table style="min-width:${Math.max(200,g.pts.length*34)}px">
+        <tr><th class="l"></th>${head}</tr>
+        <tr><td class="l small">${esc(m.teams[0].players.map(n=>n[0]).join("・"))}</td>${row(0)}</tr>
+        <tr><td class="l small">${esc(m.teams[1].players.map(n=>n[0]).join("・"))}</td>${row(1)}</tr>
+        <tr><td class="l small">サーブ</td>${sv}</tr>
+      </table></div>
+    </div>`;
+  }).join("")||'<div class="card small center">まだポイントがありません</div>';
+  return `<h1>📋 採点表</h1>
+  <div class="card center">
+    <b>${esc(m.teams[0].players.join("・"))}</b> <span class="vs">vs</span> <b>${esc(m.teams[1].players.join("・"))}</b>
+    <div class="big">${d.games[0]} - ${d.games[1]}</div>
+    <div class="small">⭕=ポイント獲得　サーブ行：1=1stイン 2=2ndイン W=ダブルフォルト</div>
+  </div>
+  ${tables}
+  <button class="primary" onclick="go(backView)">← 元の画面に戻る</button>`;
 }
 function delMatch(id){
   if(!confirm("この試合データを削除する？"))return;
