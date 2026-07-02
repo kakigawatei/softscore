@@ -60,6 +60,10 @@ td.l,th.l{text-align:left}
 .vs{color:var(--sub);font-size:12px}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
 .overlay .card{width:86%;max-width:420px;text-align:center}
+/* ---- オープニング（タイトル画面） ---- */
+#splash{position:fixed;inset:0;z-index:60;cursor:pointer;background:linear-gradient(#8ecdf2 0%,#8ecdf2 55%,#7cbc5a 100%);
+  display:flex;align-items:center;justify-content:center}
+#splash img{width:100%;height:100%;object-fit:contain;display:block}
 /* ---- JSTA公式採点票（原寸再現・mm単位） ---- */
 #paperOuter{margin:0 auto;overflow:visible}
 .paper2{background:#fff;width:178mm;padding:3mm 5mm;transform-origin:top left;color:#000;
@@ -114,7 +118,7 @@ const LS="softscore_v1";
 let matches=[];
 try{matches=JSON.parse(localStorage.getItem(LS)||"[]");}catch(e){matches=[];}
 const save=()=>localStorage.setItem(LS,JSON.stringify(matches));
-let view="home";      // home | setup | score | stats | db
+let view="splash";    // splash | home | setup | score | stats | db
 let cur=null;         // current match
 let statsTarget=null; // match shown in stats view
 let pt={};            // current point input state
@@ -202,7 +206,8 @@ const pct=(a,b)=>b?Math.round(a/b*100)+"%":"–";
 /* ================= views ================= */
 function render(){
   const app=$("app");
-  if(view==="home")app.innerHTML=vHome();
+  if(view==="splash")app.innerHTML=vSplash();
+  else if(view==="home")app.innerHTML=vHome();
   else if(view==="setup")app.innerHTML=vSetup();
   else if(view==="score")app.innerHTML=vScore();
   else if(view==="stats")app.innerHTML=vStats(statsTarget);
@@ -217,10 +222,19 @@ function go(v){
 }
 
 function renderNav(){
+  if(view==="splash"){$("nav").innerHTML="";return;}
   const items=[["home","🏠 ホーム"],["db","📊 選手DB"]];
   if(cur&&!derive(cur).finished)items.splice(1,0,["score","🎾 試合中"]);
   $("nav").innerHTML=items.map(([v,l])=>
     `<button class="${view===v?'on':''}" onclick="go('${v}')">${l}</button>`).join("");
+}
+
+/* ---------- opening (タイトル画面) ---------- */
+function vSplash(){
+  // 画像が無い環境でも止まらないよう、読み込み失敗時はそのままホームへ
+  return `<div id="splash" onclick="go('home')">
+    <img src="title.png?v=1" alt="ナンシキ村の採点票" onerror="go('home')">
+  </div>`;
 }
 
 /* ---------- home ---------- */
