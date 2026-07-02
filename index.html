@@ -86,7 +86,7 @@ td.l,th.l{text-align:left}
 .gmid .ed,.hc>.ed{flex:0 1 auto;min-width:4.5mm}
 .mk{font-size:3.3mm;font-weight:700;line-height:1}
 .ast{position:absolute;top:.1mm;right:.2mm;font-size:1.7mm;color:var(--fB);font-style:normal;line-height:1}
-.gg{display:grid;grid-template-columns:repeat(13,1fr);height:100%}
+.gg{display:grid;grid-template-columns:repeat(12,1fr);height:100%}
 .gmid{gap:.8mm}
 .glab{color:var(--fB);font-size:3.4mm;white-space:nowrap;cursor:pointer}
 .hc,.hcv{display:inline-flex;align-items:center;justify-content:center;min-width:4.4mm;min-height:4.4mm;line-height:1}
@@ -564,13 +564,12 @@ function vSheet(m){
     const cur=cget(key,auto);
     return `<div class="lc srx cB" onclick="cycC('${key}',${cur},3)">${cw("S",cur===0)}${cw("R",cur===1)}</div>`;
   };
-  // 通常行の縦線：1・3マス目の後→下段のみ濃線、5・7・9・11マス目の後→濃線、他→薄線
-  const brReg=(c,band)=>{
-    if(c===12)return "";
-    if(c===0||c===2)return band===1?"cB":"cL";
-    return (c>=4&&c%2===0)?"cB":"cL";
+  // 通常行の縦線：2ポイントごとに太線（2・4・6・8・10ポイント目の後）、他は薄線
+  const brReg=(c)=>{
+    if(c===11)return "";
+    return c%2===1?"cB":"cL";
   };
-  const GAMECOLS="13.2mm 57.5mm 26.6mm 13.3mm 57.4mm";
+  const GAMECOLS="17.6mm 53.1mm 26.6mm 17.7mm 53mm";
   const midCell=(key,label,sL,sR,win)=>`
     <div class="lc cB gmid">
       ${win===0?`<span class="hc">${ed(key+"L",sL,"3.4mm")}</span>`:ed(key+"L",sL,"3.4mm")}
@@ -583,8 +582,8 @@ function vSheet(m){
     const grid=(t)=>{
       let h="";
       for(let band=0;band<2;band++)
-        for(let c=0;c<13;c++)
-          h+=ptCell(`p${ri}_${t}_${band}_${c}`,mkAuto(g,t,band*13+c),brReg(c,band)+(band===0?" bb":""));
+        for(let c=0;c<12;c++)
+          h+=ptCell(`p${ri}_${t}_${band}_${c}`,mkAuto(g,t,band*12+c),brReg(c)+(band===0?" bb":""));
       return h;
     };
     const win=cget(`g${ri}w`,g&&g.winner!==null?g.winner:2);
@@ -597,29 +596,27 @@ function vSheet(m){
       <div class="gg" style="grid-template-rows:1fr 1fr">${grid(1)}</div>
     </div>`;
   };
-  // Ｆ行：縦線とアスタリスクは公式票の千鳥配置
+  // Ｆ行：2ポイントずつのグループが段ごとに交互（左：1-2/5-6/9-10＝中段、3-4/7-8/11-12＝上下段。右は逆）
+  // グループ末尾の太線もそのグループの段にだけ入れる
+  const fGrpBand=(c,side)=>((Math.floor(c/2)+side)%2===0)?"md":"tb";
   const brFin=(c,band,side)=>{
-    if(c===12)return "";
-    const tb=side===0?[0,4,8]:[2,6,10];
-    const md=side===0?[2,6,10]:[0,4,8];
-    if(tb.includes(c))return band===1?"cL":"cB";
-    if(md.includes(c))return band===1?"cB":"cL";
-    return "cL";
+    if(c===11)return "";
+    if(c%2===0)return "cL";
+    const gb=fGrpBand(c,side);
+    if(gb==="md")return band===1?"cB":"cL";
+    return band===1?"cL":"cB";
   };
   const astF=(c,band,side)=>{
-    const tb=side===0?[0,3,4,7,8,11,12]:[1,2,5,6,9,10];
-    const md=side===0?[1,2,5,6,9,10]:[0,3,4,7,8,11,12];
-    return band===1?md.includes(c):tb.includes(c);
+    const gb=fGrpBand(c,side);
+    return gb==="md"?band===1:band!==1;
   };
   const fRow=(()=>{
     const srvT=fg&&fg.pts.length?fg.pts[0].st:null;
     const grid=(t)=>{
       let h="";
       for(let band=0;band<3;band++)
-        for(let c=0;c<13;c++){
-          const idx=band===1?c:(band===2?13+c:-1);
-          h+=ptCell(`pF_${t}_${band}_${c}`,idx<0?0:mkAuto(fg,t,idx),brFin(c,band,t)+(band<2?" bb":""),astF(c,band,t));
-        }
+        for(let c=0;c<12;c++)
+          h+=ptCell(`pF_${t}_${band}_${c}`,mkAuto(fg,t,band*12+c),brFin(c,band,t)+(band<2?" bb":""),astF(c,band,t));
       return h;
     };
     const win=cget("gFw",fg&&fg.winner!==null?fg.winner:2);
